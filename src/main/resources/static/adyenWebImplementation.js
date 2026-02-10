@@ -5,7 +5,7 @@ const { AdyenCheckout, Dropin } = window.AdyenWeb;
 async function startCheckout() {
     try {
         // Step 8 - Retrieve the available payment methods
-        const paymentMethodsResponse = await fetch("/api/paymentMethods", {
+        const session = await fetch("/api/subscription-create", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -13,8 +13,8 @@ async function startCheckout() {
         }).then(response => response.json());
 
         const configuration = {
-            paymentMethodsResponse: paymentMethodsResponse,
             clientKey,
+            session: session,
             locale: "en_US",
             countryCode: 'NL',
             environment: "test",
@@ -25,34 +25,6 @@ async function startCheckout() {
                 }
             },
             // Step 10 - Add the onSubmit handler by telling it what endpoint to call when the pay button is pressed.
-            onSubmit: async (state, component, actions) => {
-                console.info("onSubmit", state, component, actions);
-                try {
-                    if (state.isValid) {
-                        const { action, order, resultCode } = await fetch("/api/payments", {
-                            method: "POST",
-                            body: state.data ? JSON.stringify(state.data) : "",
-                            headers: {
-                                "Content-Type": "application/json",
-                            }
-                        }).then(response => response.json());
-
-                        if (!resultCode) {
-                            console.warn("reject");
-                            actions.reject();
-                        }
-
-                        actions.resolve({
-                            resultCode,
-                            action,
-                            order
-                        });
-                    }
-                } catch (error) {
-                    console.error(error);
-                    actions.reject();
-                }
-            },
             onPaymentCompleted: (result, component) => {
                 console.info("onPaymentCompleted", result, component);
                 handleOnPaymentCompleted(result, component);
@@ -98,7 +70,7 @@ async function startCheckout() {
                 holderNameRequired: true,
                 name: "Credit or debit card",
                 amount: {
-                    value: 9998,
+                    value: 0,
                     currency: "EUR",
                 },
                 placeholders: {

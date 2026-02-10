@@ -36,12 +36,12 @@ In order to enable subscriptions, we need to do three things:
 
 
 I've verified and tested the following flows:
-* [ ] `/api/subscription-create` -> `/api/subscription-payment`
-* [ ] `/api/subscription-create` -> `/api/subscription-cancel`
-* [ ] `/api/subscription-create` -> `/api/subscription-payment` -> `/api/subscription-cancel`
-* [ ] `/api/subscription-create` -> `/api/subscription-payment` -> `/api/subscription-cancel` -> `/api/subscription-payment`
+* [x] `/api/subscription-create` -> `/api/subscription-payment`
+* [x] `/api/subscription-create` -> `/api/subscription-cancel`
+* [x] `/api/subscription-create` -> `/api/subscription-payment` -> `/api/subscription-cancel`
+* [x] `/api/subscription-create` -> `/api/subscription-payment` -> `/api/subscription-cancel` -> `/api/subscription-payment`
 
 
 I've triggered & handled the following webhooks:
-* [ ] Handle the `AUTHORISATION` webhook
-* [ ] Handle the `RECURRING_CONTRACT` webhook
+* [x] Handle the `AUTHORISATION` webhook
+* [x] Handle the `RECURRING_CONTRACT` webhook

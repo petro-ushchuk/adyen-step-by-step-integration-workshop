@@ -4,9 +4,11 @@ import com.adyen.model.notification.NotificationRequest;
 import com.adyen.model.notification.NotificationRequestItem;
 import com.adyen.util.HMACValidator;
 import com.adyen.workshop.configurations.ApplicationConfiguration;
+import com.adyen.workshop.util.Storage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -38,25 +40,48 @@ public class WebhookController {
         var notificationRequest = NotificationRequest.fromJson(json);
         var notificationRequestItem = notificationRequest.getNotificationItems().stream().findFirst();
 
-        try {
+        if (notificationRequestItem.isPresent()) {
+
             NotificationRequestItem item = notificationRequestItem.get();
 
-            // Step 16 - Validate the HMAC signature using the ADYEN_HMAC_KEY
-            if (!hmacValidator.validateHMAC(item, this.applicationConfiguration.getAdyenHmacKey())) {
-                log.warn("Could not validate HMAC signature for incoming webhook message: {}", item);
-                return ResponseEntity.unprocessableEntity().build();
+
+            try {
+                if (!hmacValidator.validateHMAC(item, this.applicationConfiguration.getAdyenHmacKey())) {
+                    log.warn("Could not validate HMAC signature for incoming webhook message: {}", item);
+                    return ResponseEntity.ok().build();
+                }
+
+                log.info("Received webhook success:{} eventCode:{}", item.isSuccess(), item.getEventCode());
+
+                if(item.isSuccess()) {
+                    // read about eventcode "RECURRING_CONTRACT" here: https://docs.adyen.com/online-payments/tokenization/create-and-use-tokens?tab=subscriptions_2#pending-and-refusal-result-codes-1
+                    if (item.getEventCode().equals("RECURRING_CONTRACT") && item.getAdditionalData() != null && item.getAdditionalData().get("recurring.shopperReference") != null) {
+                        // webhook with recurring token
+                        log.info("Recurring authorized - recurringDetailReference {}", item.getAdditionalData().get("recurring.recurringDetailReference"));
+
+                        // save token
+                        Storage.add(item.getAdditionalData().get("recurring.recurringDetailReference"), item.getPaymentMethod(), item.getAdditionalData().get("recurring.shopperReference"));
+                    } else if (item.getEventCode().equals("AUTHORISATION")) {
+                        // webhook with payment authorisation
+                        log.info("Payment authorized - PspReference {}", item.getPspReference());
+                    } else {
+                        // unexpected eventCode
+                        log.warn("Unexpected eventCode: {}", item.getEventCode());
+                    }
+                } else {
+                    // Operation has failed: check the reason field for failure information.
+                    log.info("Operation has failed: {}", item.getReason());
+                }
+
+            } catch (SignatureException e) {
+                // Unexpected error during HMAC validation
+                log.error("Error while validating HMAC Key", e);
+                throw new RuntimeException(e.getMessage());
             }
 
-            // Success, log it for now
-            log.info("Received webhook with event {}", item.toString());
-
-            return ResponseEntity.accepted().build();
-        } catch (SignatureException e) {
-            // Handle invalid signature
-            return ResponseEntity.unprocessableEntity().build();
-        } catch (Exception e) {
-            // Handle all other errors
-            return ResponseEntity.status(500).build();
         }
+
+        // Acknowledge event has been consumed
+        return ResponseEntity.status(HttpStatus.ACCEPTED).build();
     }
 }
